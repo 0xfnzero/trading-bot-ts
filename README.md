@@ -1,386 +1,327 @@
-# Solana DEX Trading Proxy Client
+# Solana DEX 连续买入跟单机器人
 
-TypeScript/Node.js 客户端库，用于与 Solana DEX 交易代理服务 (trading-proxy-http) 进行交互。
+专业的 Solana PumpSwap 交易机器人，基于连续买入模式识别和跟单策略。当检测到某个代币连续大额买入时，自动跟单买入并进行止盈止损管理。
 
-支持通过 HTTP API 执行交易，以及通过 WebSocket 实时订阅链上 DEX 交易事件数据。
+## ✨ 核心特性
 
-## 安装
+- **🎯 智能跟单**: 检测连续买入模式，自动跟单交易
+- **📊 实时监控**: 毫秒级延迟监听链上 PumpSwap 交易事件
+- **💰 自动止盈止损**: 15% 止盈，10% 止损，全自动执行
+- **🛡️ 风险管理**: 多重风险控制，保护资金安全
+- **⚙️ 灵活配置**: 所有参数可通过环境变量自定义
+- **📈 实时统计**: 持仓跟踪、盈亏统计、性能分析
+
+## 🚀 快速开始
+
+### 环境要求
+
+- Node.js 16.0+
+- NPM 7.0+
+- Solana 交易代理服务正在运行
+
+### 安装依赖
 
 ```bash
-cd client
+# 克隆项目后进入目录
+cd trading-bot-ts
+
+# 安装依赖
 npm install
 ```
 
-## 构建
+### 配置策略参数
 
 ```bash
-npm run build
+# 复制配置模板
+cp .env.example .env
+
+# 编辑配置文件
+nano .env  # 或使用其他编辑器
 ```
 
-## 主要功能
+### 核心配置说明
 
-- **HTTP API 交易**：通过 HTTP 接口执行 Solana DEX 买入/卖出交易
-- **实时数据订阅**：通过 WebSocket 订阅链上 DEX 交易事件
-- **多 DEX 支持**：支持 PumpFun、PumpSwap、Raydium、Orca 等主流 DEX
-- **低延迟监控**：提供微秒级延迟监控
-- **错误重试**：自动重试和容错机制
-
-## 使用场景
-
-- 构建 Solana DEX 交易应用
-- 开发链上数据监控工具
-- 实现交易策略和算法交易
-- 集成到现有的 DeFi 应用中
-
-## 使用
-
-### HTTP 交易示例
-
-```typescript
-import { TradingProxyClient, ClientConfig } from 'trading-proxy-client';
-
-const client = new TradingProxyClient({
-  baseURL: 'http://localhost:3000',
-  timeout: 30000,
-  retries: 3
-});
-
-// 健康检查
-const health = await client.health();
-console.log(health);
-
-// 买入交易
-const pumpSwapParams: PumpSwapParams = {
-  dex_type: 'PumpSwap',
-  pool: '你的池子地址',
-  base_mint: '代币mint地址',
-  quote_mint: 'So11111111111111111111111111111111111111112',
-  pool_base_token_account: '池子基础代币账户',
-  pool_quote_token_account: '池子报价代币账户',
-  pool_base_token_reserves: 1000000,
-  pool_quote_token_reserves: 1000000,
-  coin_creator_vault_ata: 'creator vault ata',
-  coin_creator_vault_authority: 'creator vault authority',
-  base_token_program: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-  quote_token_program: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-};
-
-const buyResult = await client.buy(pumpSwapParams, {
-  mint: '代币mint地址',
-  amount_sol: 0.01,
-  slippage_bps: 500, // 5% 滑点
-});
-
-console.log('买入结果:', buyResult);
-
-// 卖出交易
-const sellResult = await client.sell(pumpSwapParams, {
-  mint: '代币mint地址',
-  amount_tokens: 1000000,
-  slippage_bps: 500,
-});
-
-console.log('卖出结果:', sellResult);
+#### 🔗 服务连接
+```env
+HTTP_API_URL=http://localhost:3000     # 交易代理 HTTP API
+WS_URL=ws://127.0.0.1:9001            # WebSocket 数据流
+REQUEST_TIMEOUT=30000                  # 请求超时 (毫秒)
 ```
 
-### 实时数据订阅
-
-```typescript
-import { SimpleTradingSubscriber } from 'trading-proxy-client';
-
-const subscriber = new SimpleTradingSubscriber(
-  'ws://127.0.0.1:9001',    // WebSocket URL
-  'http://localhost:3000'    // HTTP URL
-);
-
-subscriber.start();
+#### 📈 交易策略
+```env
+CONSECUTIVE_BUYS=3                     # 连续买入次数检测
+TOTAL_AMOUNT_THRESHOLD=5.0             # 总金额阈值 (SOL)
+TIME_WINDOW_MINUTES=5                  # 时间窗口 (分钟)
+BUY_AMOUNT_SOL=0.01                   # 跟单买入金额 (SOL)
 ```
 
-### 运行示例
+#### 💰 止盈止损
+```env
+TAKE_PROFIT_PERCENT=15.0              # 止盈百分比
+STOP_LOSS_PERCENT=-10.0               # 止损百分比
+CHECK_INTERVAL_SECONDS=10             # 检查间隔 (秒)
+```
+
+#### 🛡️ 风险控制
+```env
+MAX_POSITIONS=5                        # 最大同时持仓数
+COOLDOWN_MINUTES=5                     # 代币冷却时间 (分钟)
+SLIPPAGE_BPS=500                      # 滑点保护 (5%)
+```
+
+## 🎯 运行机器人
+
+### 启动交易机器人
 
 ```bash
-# 订阅链上交易数据
-npm run subscribe
-
-# 运行交易机器人
+# 开发模式 (实时日志)
 npm run bot
+
+# 生产模式 (编译后运行)
+npm run bot:prod
 
 # 构建项目
 npm run build
+
+# 仅监听事件 (不执行交易)
+npm run subscribe
 ```
 
-## API
+### 启动输出示例
 
-### TradingProxyClient
+```
+🚀 启动交易机器人...
+✅ 服务器状态: healthy
+🚀 交易机器人已连接到数据流
+📡 正在监听链上交易事件...
+📊 当前状态: 0 个持仓, 总投资 0 SOL
 
-#### constructor(config?: ClientConfig)
+📊 分析买入事件: A1B2C3D4... Amount: 2.5000 SOL
+📊 分析买入事件: A1B2C3D4... Amount: 1.8000 SOL
+📊 分析买入事件: A1B2C3D4... Amount: 3.2000 SOL
 
-创建客户端实例。
+🎯 检测到连续买入模式!
+   代币: A1B2C3D4E5F6G7H8...
+   连续买入: 3次
+   总金额: 7.5000 SOL
+🚀 执行跟单买入!
+   我们买入: 0.01 SOL
+✅ 买入成功: 5YoP8xT2M...
+📊 当前状态: 1 个持仓, 总投资 0.01 SOL
+
+📈 A1B2C3D4... PnL: +12.50%
+🎯 触发止盈: 16.20% >= 15.00%
+✅ 止盈成功: 3KpL9vN8Q...
+   盈亏: +16.20% (+0.00162 SOL)
+```
+
+## 💡 使用方式
+
+### 🤖 自动交易模式 (推荐)
 
 ```typescript
-interface ClientConfig {
-  baseURL?: string;      // 服务器地址，默认 'http://localhost:3000'
-  timeout?: number;      // 请求超时时间，默认 30000ms
-  retries?: number;      // 重试次数，默认 3
-  retryDelay?: number;   // 重试延迟，默认 1000ms
-}
+import { TradingBot } from 'trading-proxy-client';
+
+const bot = new TradingBot();
+await bot.start();
+
+// 机器人自动执行：
+// ✅ 监听 PumpSwap 买入事件
+// ✅ 检测连续买入模式
+// ✅ 自动跟单买入
+// ✅ 实时止盈止损管理
+// ✅ 风险控制和仓位管理
 ```
 
-#### health(): Promise<HealthResponse>
-
-健康检查。
-
-#### buy(dexParams: DexParams, request: BuyRequest): Promise<TradeResponse>
-
-执行买入交易。
-
-- `dexParams`: DEX 参数（PumpFun 或 PumpSwap）
-- `request.mint`: 代币 mint 地址
-- `request.amount_sol`: 买入金额（SOL）
-- `request.slippage_bps`: 滑点（基点，可选）
-
-#### sell(dexParams: DexParams, request: SellRequest): Promise<TradeResponse>
-
-执行卖出交易。
-
-- `dexParams`: DEX 参数（PumpFun 或 PumpSwap）
-- `request.mint`: 代币 mint 地址
-- `request.amount_tokens`: 卖出数量（代币）
-- `request.slippage_bps`: 滑点（基点，可选）
-
-## 类型定义
-
-### DexParams
-
-支持两种 DEX：
-
-- `PumpFunParams`: PumpFun DEX 参数
-- `PumpSwapParams`: PumpSwap DEX 参数
-
-### TradeResponse
-
-```typescript
-interface TradeResponse {
-  success: boolean;
-  signature?: string;
-  message: string;
-}
-```
-
-### ErrorResponse
-
-```typescript
-interface ErrorResponse {
-  success: false;
-  error: string;
-}
-```
-
-## 错误处理
-
-客户端会自动处理错误并抛出有意义的异常：
-
-```typescript
-try {
-  const result = await client.buy(params, request);
-  console.log('成功:', result);
-} catch (error) {
-  console.error('失败:', error.message);
-}
-```
-
-## WebSocket 订阅
-
-### EventSubscriber
-
-实时订阅 Solana DEX 事件流，获取链上交易数据。
-
-#### 构造函数
-
-```typescript
-// 简单使用
-const subscriber = new EventSubscriber('ws://127.0.0.1:9001');
-
-// 带配置使用
-const subscriber = new EventSubscriber({
-  wsUrl: 'ws://127.0.0.1:9001',
-  maxReconnectAttempts: 5,
-  reconnectDelay: 1000,
-  messageBufferSize: 100
-});
-```
-
-#### 事件监听
-
-**通用事件:**
-- `connected`: 连接成功
-- `disconnected`: 连接断开
-- `reconnecting`: 正在重连
-- `error`: 发生错误
-- `event`: 任何事件（带延迟信息）
-
-**DEX 特定事件:**
-- `pumpswap`: PumpSwap 交易事件
-- `pumpfun:trade`: PumpFun 交易事件
-- `pumpfun:create`: PumpFun 代币创建事件
-- `raydium:ammv4`: Raydium AMM V4 流动性池交易
-- `raydium:clmm`: Raydium CLMM 集中流动性交易
-- `orca:whirlpool`: Orca Whirlpool 交易事件
-
-#### 基础使用
+### 📊 仅数据监控
 
 ```typescript
 import { EventSubscriber } from 'trading-proxy-client';
 
-const subscriber = new EventSubscriber('ws://127.0.0.1:9001');
-
-subscriber.on('connected', () => {
-  console.log('✅ Connected');
-});
+const subscriber = new EventSubscriber();
 
 subscriber.on('pumpswap', (event, latency) => {
-  console.log('PumpSwap Event:', event);
-  console.log('Latency:', latency?.latency_ms, 'ms');
-});
-
-subscriber.on('event', (eventData) => {
-  console.log('Event:', eventData.event);
-  console.log('Timestamp:', eventData.timestamp);
-  console.log('Latency:', eventData.latency?.latency_ms, 'ms');
-});
-
-subscriber.connect();
-
-// 断开连接
-subscriber.disconnect();
-```
-
-#### 延迟信息
-
-每个事件都包含延迟信息（如果可用）：
-
-```typescript
-interface LatencyInfo {
-  grpc_recv_us: number;      // gRPC 接收时间（微秒）
-  client_recv_us: number;     // 客户端接收时间（微秒）
-  latency_us: number;         // 延迟（微秒）
-  latency_ms: number;         // 延迟（毫秒）
-}
-```
-
-#### 自动重连
-
-客户端支持自动重连，最多尝试 5 次，使用指数退避策略。
-
-### 结合 HTTP + WebSocket
-
-监控链上交易并执行策略：
-
-```typescript
-import { TradingProxyClient, EventSubscriber } from 'trading-proxy-client';
-
-const httpClient = new TradingProxyClient({ baseURL: 'http://localhost:3000' });
-const subscriber = new EventSubscriber('ws://127.0.0.1:9001');
-
-// 监听 PumpSwap 大额买入交易
-subscriber.on('pumpswap', async (event, latency) => {
-  console.log(`交易延迟: ${latency?.latency_ms}ms`);
-
-  if (event.is_buy && event.amount_in > 50000000) { // > 0.05 SOL
-    console.log('🎯 检测到大额买入交易');
-    console.log(`代币: ${event.mint}`);
-    console.log(`金额: ${event.amount_in / 1e9} SOL`);
-
-    // 这里可以实现你的交易策略
-    // const result = await httpClient.buy(...);
-  }
+  const action = event.is_buy ? '🟢 BUY' : '🔴 SELL';
+  console.log(`${action} ${event.mint} ${latency?.latency_ms}ms`);
 });
 
 subscriber.connect();
 ```
 
-## 事件类型
-
-### PumpSwapEvent
+### 🔧 手动交易
 
 ```typescript
-interface PumpSwapEvent {
-  mint: string;
-  pool: string;
-  trader: string;
-  amount_in: number;
-  amount_out: number;
-  is_buy: boolean;
-  metadata?: EventMetadata;
-}
+import { TradingProxyClient } from 'trading-proxy-client';
+
+const client = new TradingProxyClient();
+
+// 健康检查
+const health = await client.health();
+
+// 手动买入
+const result = await client.buy(dexParams, {
+  mint: 'token_address',
+  amount_sol: 0.01,
+  slippage_bps: 500
+});
 ```
 
-### PumpFunTradeEvent
+## 🧠 策略详解
+
+### 连续买入跟单策略
+
+机器人采用智能的连续买入模式识别策略，通过检测短时间内的大额买入行为来发现潜在的交易机会。
+
+#### 📊 工作原理
+
+```
+时间轴: 00:00 ────────────► 00:05 ────────────► 00:10
+
+代币 ABC:
+├─ 00:01  🟢 买入 2.5 SOL  (用户A)
+├─ 00:02  🟢 买入 1.8 SOL  (用户B)
+├─ 00:03  🟢 买入 3.2 SOL  (用户C)
+└─ 00:04  🎯 触发跟单！总计 7.5 SOL > 5.0 SOL 阈值
+```
+
+#### 🎯 触发条件 (全部满足)
+
+1. **连续买入检测**: 在时间窗口内检测到连续买入
+2. **金额阈值**: 累计买入金额达到设定阈值
+3. **时间限制**: 所有买入发生在指定时间窗口内
+4. **风险检查**: 通过持仓限制、冷却时间等风险控制
+
+#### ⚡ 执行流程
+
+```mermaid
+graph TD
+    A[监听PumpSwap买入事件] --> B[记录买入数据]
+    B --> C{是否达到连续买入次数?}
+    C -->|否| A
+    C -->|是| D{总金额是否超过阈值?}
+    D -->|否| A
+    D -->|是| E[风险检查]
+    E --> F{通过风险检查?}
+    F -->|否| A
+    F -->|是| G[执行跟单买入]
+    G --> H[开始持仓管理]
+    H --> I[监控止盈止损]
+    I --> J{触发止盈/止损?}
+    J -->|否| I
+    J -->|是| K[自动卖出]
+```
+
+#### 💰 止盈止损机制
+
+- **实时监控**: 每10秒检查一次持仓收益
+- **止盈触发**: 达到15%收益时自动卖出
+- **止损保护**: 亏损达到10%时自动止损
+- **精确计算**: 基于买入价格实时计算收益率
+
+#### 🛡️ 多重风险控制
+
+1. **持仓限制**: 最多同时持有5个代币仓位
+2. **冷却机制**: 同一代币5分钟内只能买入一次
+3. **滑点保护**: 交易时设置5%滑点保护
+4. **金额控制**: 固定小额买入，控制单笔风险
+5. **时间窗口**: 限制在短时间窗口内的买入行为
+
+## 📈 性能特性
+
+### ⚡ 低延迟优势
+
+- **毫秒级响应**: WebSocket实时数据流，延迟<100ms
+- **高效处理**: 异步事件处理，不阻塞主线程
+- **智能缓存**: 价格历史缓存，快速计算收益
+
+### 🔄 自动化管理
+
+- **无人值守**: 7x24小时自动运行
+- **自动清理**: 定期清理过期数据，保持性能
+- **异常恢复**: 网络断线自动重连，容错性强
+
+### 📊 实时统计
 
 ```typescript
-interface PumpFunTradeEvent {
-  mint: string;
-  trader: string;
-  amount_sol: number;
-  amount_token: number;
-  is_buy: boolean;
-  metadata?: EventMetadata;
-}
+// 获取实时统计
+const stats = bot.getStats();
+console.log(`
+持仓数量: ${stats.totalPositions}
+总投资: ${stats.totalInvested} SOL
+总盈亏: ${stats.totalPnL} SOL
+平均收益: ${stats.avgPnL.toFixed(2)}%
+`);
 ```
 
-### RaydiumSwapEvent
+## ⚠️ 注意事项
 
-```typescript
-interface RaydiumSwapEvent {
-  pool: string;
-  trader: string;
-  amount_in: number;
-  amount_out: number;
-  token_in: string;
-  token_out: string;
-  metadata?: EventMetadata;
-}
-```
+### 💡 使用建议
 
-## 简化使用
+1. **测试先行**: 建议先在小金额下测试策略效果
+2. **参数调优**: 根据市场情况调整连续买入阈值
+3. **风险意识**: 设置合理的持仓上限和买入金额
+4. **网络稳定**: 确保网络连接稳定，避免错过交易机会
 
-使用 `SimpleTradingSubscriber` 快速开始：
+### 🚨 风险提示
 
-```typescript
-import { SimpleTradingSubscriber } from 'trading-proxy-client';
+- 加密货币交易具有高风险，可能导致本金损失
+- 机器人交易无法保证盈利，请理性投资
+- 建议设置合理的资金上限，控制整体风险
+- 定期监控机器人运行状态，及时处理异常
 
-const subscriber = new SimpleTradingSubscriber();
-subscriber.start();
+### 🔧 故障排除
 
-// 会自动显示所有 DEX 交易事件，包括：
-// - PumpSwap 交易
-// - PumpFun 交易和代币创建
-// - Raydium AMM V4 和 CLMM 交易
-// - Orca Whirlpool 交易
-```
+#### 常见问题
 
-## 开发和部署
-
+**Q: 机器人无法连接到服务器**
 ```bash
-# 安装依赖
-npm install
+# 检查服务器状态
+curl http://localhost:3000/health
 
-# 开发模式运行
-npm run subscribe
-
-# 构建生产版本
-npm run build
-
-# 运行生产版本
-npm run subscribe:prod
+# 检查WebSocket连接
+wscat -c ws://127.0.0.1:9001
 ```
 
-## 注意事项
+**Q: 交易执行失败**
+- 检查钱包余额是否充足
+- 验证滑点设置是否合理
+- 确认代理服务正常运行
 
-1. **网络连接**：确保交易代理服务正在运行
-2. **WebSocket 稳定性**：客户端会自动重连，但建议监控连接状态
-3. **错误处理**：所有 API 调用都应该包装在 try-catch 中
-4. **延迟监控**：利用延迟信息优化交易时机
+**Q: 未检测到买入机会**
+- 降低 `TOTAL_AMOUNT_THRESHOLD` 阈值
+- 增加 `TIME_WINDOW_MINUTES` 时间窗口
+- 检查 WebSocket 连接是否正常
+
+## 📚 API 文档
+
+### TradingBot 类
+
+```typescript
+class TradingBot {
+  constructor()                        // 创建机器人实例
+  async start(): Promise<void>         // 启动机器人
+  stop(): void                        // 停止机器人
+  getPositions(): Map<string, Position> // 获取当前持仓
+  getStats(): Stats                   // 获取统计信息
+}
+```
+
+### 事件监听
+
+```typescript
+bot.on('buy-success', (data) => {
+  // 买入成功事件
+});
+
+bot.on('sell-success', (data) => {
+  // 卖出成功事件
+});
+
+bot.on('error', (error) => {
+  // 错误事件处理
+});
+```
 
 ## License
 
