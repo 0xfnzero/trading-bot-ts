@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { EventSubscriber } from './subscriber';
 import { TradingProxyClient } from './client';
 import { TradingStrategy, StrategyConfig, Position } from './strategy';
-import { PumpSwapEvent, LatencyInfo } from './types';
+import { PumpSwapEvent, PumpFunTradeEvent, LatencyInfo } from './types';
 
 export class TradingBot {
   private subscriber: EventSubscriber;
@@ -54,7 +54,19 @@ export class TradingBot {
       const delay = latency ? `[${latency.latency_ms}ms]` : '';
       const mintShort = event.mint.substring(0, 8);
 
-      console.log(`${action} ${delay} ${mintShort}... Amount: ${(event.amount_in / 1e9).toFixed(4)} SOL`);
+      console.log(`[PumpSwap] ${action} ${delay} ${mintShort}... Amount: ${(event.amount_in / 1e9).toFixed(4)} SOL`);
+
+      // 分析事件并可能触发买入
+      await this.strategy.analyzeEvent(event);
+    });
+
+    // 订阅PumpFun交易事件
+    this.subscriber.on('pumpfun:trade', async (event: PumpFunTradeEvent, latency?: LatencyInfo) => {
+      const action = event.is_buy ? '🟢 BUY' : '🔴 SELL';
+      const delay = latency ? `[${latency.latency_ms}ms]` : '';
+      const mintShort = event.mint.substring(0, 8);
+
+      console.log(`[PumpFun] ${action} ${delay} ${mintShort}... Amount: ${(event.amount_in / 1e9).toFixed(4)} SOL`);
 
       // 分析事件并可能触发买入
       await this.strategy.analyzeEvent(event);

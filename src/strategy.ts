@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { TradingProxyClient } from './client';
-import { PumpSwapEvent, DexParams } from './types';
+import { PumpSwapEvent, PumpFunTradeEvent, DexParams } from './types';
 
 export interface StrategyConfig {
   // 连续买入策略配置
@@ -43,6 +43,8 @@ interface BuyEvent {
   trader: string;
 }
 
+type TradingEvent = PumpSwapEvent | PumpFunTradeEvent;
+
 export class TradingStrategy extends EventEmitter {
   private client: TradingProxyClient;
   private config: StrategyConfig;
@@ -62,8 +64,8 @@ export class TradingStrategy extends EventEmitter {
     }, this.config.checkIntervalSeconds * 1000);
   }
 
-  // 分析PumpSwap事件，判断是否符合连续买入条件
-  async analyzeEvent(event: PumpSwapEvent): Promise<void> {
+  // 分析交易事件，判断是否符合连续买入条件
+  async analyzeEvent(event: TradingEvent): Promise<void> {
     try {
       // 更新价格历史
       this.updatePriceHistory(event);
@@ -101,7 +103,7 @@ export class TradingStrategy extends EventEmitter {
     }
   }
 
-  private checkBasicConditions(event: PumpSwapEvent): boolean {
+  private checkBasicConditions(event: TradingEvent): boolean {
     // 检查最大持仓数
     if (this.positions.size >= this.config.maxPositions) {
       console.log(`   ❌ 已达最大持仓数: ${this.positions.size}`);
@@ -127,7 +129,7 @@ export class TradingStrategy extends EventEmitter {
     return true;
   }
 
-  private recordBuyEvent(event: PumpSwapEvent, amountSOL: number): void {
+  private recordBuyEvent(event: TradingEvent, amountSOL: number): void {
     const mint = event.mint;
     const now = Date.now();
 
@@ -171,7 +173,7 @@ export class TradingStrategy extends EventEmitter {
     return null;
   }
 
-  private async executeBuy(event: PumpSwapEvent, pattern: any): Promise<void> {
+  private async executeBuy(event: TradingEvent, pattern: any): Promise<void> {
     console.log(`🚀 执行跟单买入!`);
     console.log(`   代币: ${event.mint}`);
     console.log(`   连续买入: ${pattern.count}次`);
@@ -290,7 +292,7 @@ export class TradingStrategy extends EventEmitter {
     }
   }
 
-  private updatePriceHistory(event: PumpSwapEvent): void {
+  private updatePriceHistory(event: TradingEvent): void {
     const mint = event.mint;
     const price = event.amount_out / event.amount_in;
     const time = Date.now();
@@ -313,21 +315,41 @@ export class TradingStrategy extends EventEmitter {
     return history[history.length - 1].price;
   }
 
-  private buildDexParams(event: PumpSwapEvent): DexParams {
-    return {
-      dex_type: 'PumpSwap',
-      pool: event.pool || '',
-      base_mint: event.mint,
-      quote_mint: 'So11111111111111111111111111111111111111112',
-      pool_base_token_account: '',
-      pool_quote_token_account: '',
-      pool_base_token_reserves: 0,
-      pool_quote_token_reserves: 0,
-      coin_creator_vault_ata: '',
-      coin_creator_vault_authority: '',
-      base_token_program: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-      quote_token_program: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
-    } as DexParams;
+  private buildDexParams(event: TradingEvent): DexParams {
+    // 检查是否是 PumpSwap 事件 (有 pool 属性)
+    if ('pool' in event) {
+      // PumpSwap 事件
+      return {
+        dex_type: 'PumpSwap',
+        pool: event.pool || '',
+        base_mint: event.mint,
+        quote_mint: 'So11111111111111111111111111111111111111112',
+        pool_base_token_account: '',
+        pool_quote_token_account: '',
+        pool_base_token_reserves: 0,
+        pool_quote_token_reserves: 0,
+        coin_creator_vault_ata: '',
+        coin_creator_vault_authority: '',
+        base_token_program: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+        quote_token_program: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+      };
+    } else {
+      // PumpFun 事件 (有 bonding_curve 属性)
+      const pumpFunEvent = event as PumpFunTradeEvent;
+      return {
+        dex_type: 'PumpFun',
+        bonding_curve_account: pumpFunEvent.bonding_curve,
+        virtual_token_reserves: 0,
+        virtual_sol_reserves: 0,
+        real_token_reserves: 0,
+        real_sol_reserves: 0,
+        token_total_supply: 0,
+        complete: false,
+        creator: '',
+        associated_bonding_curve: '',
+        creator_vault: ''
+      };
+    }
   }
 
   // 获取当前持仓

@@ -71,6 +71,16 @@ export interface PumpSwapEvent {
   metadata?: EventMetadata;
 }
 
+export interface PumpFunTradeEvent {
+  mint: string;
+  bonding_curve: string;
+  trader: string;
+  amount_in: number;
+  amount_out: number;
+  is_buy: boolean;
+  metadata?: EventMetadata;
+}
+
 export interface LatencyInfo {
   grpc_recv_us: number;
   client_recv_us: number;
